@@ -435,11 +435,14 @@ FilterManager.prototype.applyFilterToImage = function(images, histogram) {
 	if (next.length && !next.data('imagefilter-haschild'))
 	{
 		var histogram = this.findHistogram(next);
-		this.applyFilterToImage(next, histogram);
+		// Convert jQuery object to array
+		this.applyFilterToImage(Array.prototype.slice.call(next), histogram);
 	}
 };
 
  FilterManager.prototype.histogramReady = function(histogram) {
 	var images = this.finder.sources[histogram.src];
-	this.applyFilterToImage(images, histogram);
+	if (images) {
+		this.applyFilterToImage(images, histogram);
+	}
 };

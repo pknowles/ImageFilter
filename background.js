@@ -24,42 +24,47 @@ mymessages.listen(function(request, sender){
 if (typeof chrome !== 'undefined')
 {
 	//FIXME: need to clear all menus first in case of background script reload
-	var filterList = chrome.contextMenus.create({title: 'Override Filter', contexts: ['all']});
+	var filterList = chrome.contextMenus.create({id: 'filterList', title: 'Override Filter', contexts: ['all']});
 	var filterListNames = {};
-	var zoomList = chrome.contextMenus.create({title: 'Zoom', contexts: ['all']});
+	var zoomList = chrome.contextMenus.create({id: 'zoomList', title: 'Zoom', contexts: ['all']});
 	var zoomSizes = {};
+	var clearFilter = chrome.contextMenus.create({id: 'clearFilter', title: 'Clear Override', contexts: ['all']});
 
-	function contextMenuFilter(info, tab) {
-		var name = filterListNames[info.menuItemId];
-		chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'filter', name: name});
-	}
-
-	function contextMenuZoom(info, tab) {
-		ratio = zoomSizes[info.menuItemId];
-		chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'zoom', ratio: ratio});
-	}
-
-	function contextMenuClearFilter(info, tab) {
-		chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'clearfilter'});
-	}
+	// Use Manifest V3 context menu API
+	chrome.contextMenus.onClicked.addListener(function(info, tab) {
+		if (filterListNames[info.menuItemId]) {
+			// Filter menu item clicked
+			var name = filterListNames[info.menuItemId];
+			chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'filter', name: name});
+		} else if (zoomSizes[info.menuItemId] !== undefined) {
+			// Zoom menu item clicked
+			var ratio = zoomSizes[info.menuItemId];
+			chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'zoom', ratio: ratio});
+		} else if (info.menuItemId === 'clearFilter') {
+			// Clear filter menu item clicked
+			chrome.tabs.sendMessage(tab.id, {contextMenuClick: 'clearfilter'});
+		}
+	});
 
 	function createFilterMenuItem(name)
 	{
-		var id = chrome.contextMenus.create({title: name, parentId: filterList, contexts: ['all'], onclick: contextMenuFilter});
+		var id = 'filter-' + name;
+		// Remove existing menu item if it exists to avoid duplicate ID error
+		chrome.contextMenus.remove(id).catch(() => {})
+		chrome.contextMenus.create({id: id, title: name, parentId: filterList, contexts: ['all']});
 		filterListNames[id] = name;
 	}
 
 	function createZoomSize(ratio)
 	{
-		var id = chrome.contextMenus.create({title: ratio + '×', parentId: zoomList, contexts: ['all'], onclick: contextMenuZoom});;
+		var id = 'zoom-' + ratio;
+		chrome.contextMenus.create({id: id, title: ratio + '×', parentId: zoomList, contexts: ['all']});
 		zoomSizes[id] = ratio;
 	}
 
 	createZoomSize(1);
 	createZoomSize(2);
 	createZoomSize(4);
-
-	var clearFilter = chrome.contextMenus.create({title: 'Clear Override', contexts: ['all'], onclick: contextMenuClearFilter});
 
 	assertDefaultsAreLoaded(function(){
 		mystorage.all(function(items){

@@ -121,7 +121,7 @@ Histogram.prototype.getImagePixels = function(drawable) {
 		Histogram.prototype.getImagePixels.tempCanvas.width = w * scale;
 		Histogram.prototype.getImagePixels.tempCanvas.height = h * scale;
 
-		var canvasContext = Histogram.prototype.getImagePixels.tempCanvas.getContext("2d");
+		var canvasContext = Histogram.prototype.getImagePixels.tempCanvas.getContext("2d", {willReadFrequently: true});
 		canvasContext.drawImage(drawable, 0, 0, w, h, 0, 0, Histogram.prototype.getImagePixels.tempCanvas.width, Histogram.prototype.getImagePixels.tempCanvas.height);
 		var pixels = canvasContext.getImageData(0, 0, canvasContext.canvas.width, canvasContext.canvas.height);
 		return pixels;

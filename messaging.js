@@ -6,8 +6,14 @@ var mymessages = {};
 		mymessages.sendBacgkround = chrome.runtime.sendMessage;
 		mymessages.sendTabs = function(message){
 			chrome.tabs.query({}, function(tabs) {
-				for (var i=0; i < tabs.length; ++i)
-					chrome.tabs.sendMessage(tabs[i].id, message);
+				for (var i=0; i < tabs.length; ++i) {
+					chrome.tabs.sendMessage(tabs[i].id, message, function(response) {
+						// Ignore errors - some tabs may not have content scripts loaded
+						if (chrome.runtime.lastError) {
+							// Silently ignore connection errors
+						}
+					});
+				}
 			});
 		};
 		mymessages.listen = function(callback){

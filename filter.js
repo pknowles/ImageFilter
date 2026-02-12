@@ -56,6 +56,7 @@ ImageFilter.prototype.update = function(sources) {
 		this.sources = sources;
 	this.source = this.chooseSource(this.sources);
 
+	// Replace histogram patterns - must always happen to avoid invalid SVG attributes
 	if (this.histogram && this.histogram.success)
 	{
 		var lh = this.histogram.lastHistogram;
@@ -69,11 +70,38 @@ ImageFilter.prototype.update = function(sources) {
 			else
 				return "0 1";
 		});
-		this.source = this.source.replace(this.variableRegex, function(m, equation){
-			equation = equation.replace(/(V[1-3])/g, function (m, i) {return that.customValue[i];});
-			return eval(equation);
+		// Also handle animated histogram patterns (must come after regular histogram regex)
+		this.source = this.source.replace(this.animatedHistogramRegex, function(matches, blockSize, channelChar) {
+			var channel = "RGBY".indexOf(channelChar);
+			blockSize = Math.max(1, blockSize.length ? parseFloat(blockSize) : 1);
+			if (blockSize > 0 && channel >= 0 && that.histogram.animated)
+				return that.histogram.getData(channel, true, blockSize);
+			else
+				return "0 1";
+		});
+	} else {
+		// Histogram not ready - replace histogram patterns with default linear values
+		// Use "0 1" which represents a linear mapping (no change)
+		this.source = this.source.replace(this.histogramRegex, function() {
+			return "0 1";
+		});
+		this.source = this.source.replace(this.animatedHistogramRegex, function() {
+			return "0 1";
 		});
 	}
+
+	// Replace variables regardless of histogram status
+	this.source = this.source.replace(this.variableRegex, function(m, equation){
+		equation = equation.replace(/(V[1-3])/g, function (m, i) {return that.customValue[i];});
+		//return eval(equation);
+		var result = that.safeEval(equation);
+		// Ensure we return a valid number, fallback to 0 if parsing failed
+		if (typeof result !== 'number' || isNaN(result)) {
+			console.warn('safeEval failed for equation:', equation, 'result:', result);
+			return 0;
+		}
+		return result;
+	});
 
 	/*
 	filterString = filterString.replace(/%\(([^\)]*V[1-3][^\)]*)\)/g, function(m, equation){
@@ -94,6 +122,99 @@ ImageFilter.prototype.update = function(sources) {
 		$(document.body).append($(svg));
 
 	this.enable(this.enabled);
+}
+
+// Safe expression evaluator to replace eval() for Manifest V3 CSP compliance
+// Handles simple arithmetic expressions: numbers, +, -, *, /, parentheses, unary minus
+ImageFilter.prototype.safeEval = function(expression) {
+	// Remove whitespace
+	expression = expression.replace(/\s/g, '');
+
+	// Simple recursive descent parser for arithmetic expressions
+	var pos = 0;
+
+	function parseNumber() {
+		var start = pos;
+		if (pos < expression.length && expression[pos] === '-') {
+			pos++;
+		}
+		while (pos < expression.length && /[\d.]/.test(expression[pos])) {
+			pos++;
+		}
+		if (pos > start) {
+			return parseFloat(expression.substring(start, pos));
+		}
+		return null;
+	}
+
+	function parseFactor() {
+		if (pos >= expression.length) return null;
+
+		if (expression[pos] === '-') {
+			pos++;
+			var value = parseFactor();
+			return value !== null ? -value : null;
+		}
+
+		if (expression[pos] === '(') {
+			pos++;
+			var value = parseExpression();
+			if (expression[pos] === ')') {
+				pos++;
+				return value;
+			}
+			return null;
+		}
+
+		return parseNumber();
+	}
+
+	function parseTerm() {
+		var value = parseFactor();
+		if (value === null) return null;
+
+		while (pos < expression.length) {
+			if (expression[pos] === '*') {
+				pos++;
+				var right = parseFactor();
+				if (right === null) return null;
+				value *= right;
+			} else if (expression[pos] === '/') {
+				pos++;
+				var right = parseFactor();
+				if (right === null) return null;
+				value /= right;
+			} else {
+				break;
+			}
+		}
+		return value;
+	}
+
+	function parseExpression() {
+		var value = parseTerm();
+		if (value === null) return null;
+
+		while (pos < expression.length) {
+			if (expression[pos] === '+') {
+				pos++;
+				var right = parseTerm();
+				if (right === null) return null;
+				value += right;
+			} else if (expression[pos] === '-') {
+				pos++;
+				var right = parseTerm();
+				if (right === null) return null;
+				value -= right;
+			} else {
+				break;
+			}
+		}
+		return value;
+	}
+
+	var result = parseExpression();
+	return result !== null ? result : 0;
 }
 
 ImageFilter.prototype.enable = function(enabled) {

@@ -5,7 +5,16 @@ function getActiveTabURL(callback)
 	if (typeof chrome !== 'undefined')
 	{
 		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-			callback(tabs[0].url);
+			if (chrome.runtime.lastError) {
+				console.warn('Error getting active tab URL:', chrome.runtime.lastError.message);
+				callback(null);
+				return;
+			}
+			if (tabs && tabs.length > 0 && tabs[0].url) {
+				callback(tabs[0].url);
+			} else {
+				callback(null);
+			}
 		});
 	}
 	else
@@ -27,7 +36,7 @@ function openOptions()
 		}
 		else
 		{
-			var optionsUrl = chrome.extension.getURL('options.html');
+			var optionsUrl = chrome.runtime.getURL('options.html');
 			chrome.tabs.query({url: optionsUrl}, function(tabs) {
 				if (tabs.length) {
 					chrome.tabs.update(tabs[0].id, {active: true});

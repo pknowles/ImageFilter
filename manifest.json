@@ -1,9 +1,9 @@
 {
-	"manifest_version": 2,
+	"manifest_version": 3,
 	"name": "Image Filter",
 	"description": "Applies filters to images on web-pages to improve contrast.",
-	"version": "1.0",
-	"browser_action": {
+	"version": "1.1",
+	"action": {
 		"default_title": "Image Filter",
 		"default_icon": "icon.png",
 		"default_popup": "popup.html"
@@ -17,12 +17,12 @@
 	"options_ui": {
 		"page": "options.html"
 	},
-	"permissions": ["tabs", "storage", "contextMenus", "<all_urls>"],
+	"permissions": ["tabs", "storage", "contextMenus"],
+	"host_permissions": ["<all_urls>"],
 	"content_scripts": [
 		{
 			"matches": [
-				"http://*/*",
-				"https://*/*"
+				"*://*/*"
 			],
 			"js": [
 				"jquery-2.2.0.min.js",
@@ -40,6 +40,6 @@
 		}
 	],
 	"background": {
-		"scripts": ["defaults.js", "storage.js", "messaging.js", "logging.js", "background.js"]
+		"service_worker": "service-worker.js"
 	}
 }

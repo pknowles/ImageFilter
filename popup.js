@@ -124,8 +124,14 @@ document.addEventListener('DOMContentLoaded', function(){
 function onLoad()
 {
 	getActiveTabURL(function(url) {
-		activeURL = url;
-		activeHostname = getHostname(url);
+		if (!url) {
+			// If we can't get the URL, use a default
+			activeURL = '';
+			activeHostname = '';
+		} else {
+			activeURL = url;
+			activeHostname = getHostname(url);
+		}
 
 		mystorage.all(function(items){
 			for (var key in items)

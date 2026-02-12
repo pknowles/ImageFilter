@@ -30,12 +30,33 @@ var mylogger = {
 				time = date.getFullYear() + "/" + pad(1+date.getMonth(),2) + "/" + pad(date.getDate(),2) + ' ' + pad(date.getHours(),2) + ":" + pad(date.getMinutes(),2) + ":" + pad(date.getSeconds(),2);
 
 				//append a log entry
-				chrome.storage.sync.get('log-' + id, function(result){
-					list = result['log-' + id] || [];
-					list.push(time + ": " + message);
-					result['log-' + id] = list;
-					chrome.storage.sync.set(result);
-				});
+				if(0) {
+					chrome.storage.sync.get('log-' + id, function(result){
+						list = result['log-' + id] || [];
+						list.push(time + ": " + message);
+						// Limit log size to prevent quota exceeded errors (keep last 100 entries)
+						if (list.length > 50) {
+							list = list.slice(-50);
+						}
+						result['log-' + id] = list;
+						chrome.storage.sync.set(result, function() {
+							if (chrome.runtime.lastError) {
+								// If sync storage fails (quota exceeded), try local storage instead
+								console.warn('Sync storage quota exceeded, using local storage for logs');
+								chrome.storage.local.get('log-' + id, function(localResult) {
+									var localList = localResult['log-' + id] || [];
+									localList.push(time + ": " + message);
+									if (localList.length > 1000) {
+										localList = localList.slice(-1000);
+									}
+									var localData = {};
+									localData['log-' + id] = localList;
+									chrome.storage.local.set(localData);
+								});
+							}
+						});
+					});
+			    }
 			});
 		});
 		//this is disgusting. so much nesting for asynchronous access :(
